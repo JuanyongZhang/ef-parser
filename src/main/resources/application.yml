@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: Parser
+  datasource:
+    type: com.zaxxer.hikari.HikariDataSource
+    url: jdbc:h2:file:./bin/h2db/db/LogMonitor;MODE=MySQL;DB_CLOSE_ON_EXIT=FALSE
+    username: lmAdmin
+    password: lmP@ss
+  h2:
+    console:
+      enabled: true
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    database: H2
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate.jdbc.batch_size: 50
+logging:
+  level:
+    ROOT: INFO
+    com.ef: DEBUG
+    
+application:
+  log-file-path: ./data/access.log
