@@ -7,7 +7,7 @@
 <listEntry value="1"/>
 </listAttribute>
 <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="com.ef.Parser"/>
-<stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="--accesslog=./data/access.log --startDate=2017-01-01.13:00:00 --duration=hourly --threshold=100"/>
+<stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="--accesslog=./data/access.log --startDate=2017-01-01.13:00:00 --duration=daily --threshold=200"/>
 <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="Parser"/>
 <stringAttribute key="process_factory_id" value="org.springframework.ide.eclipse.boot.launch.process.BootProcessFactory"/>
 <booleanAttribute key="spring.boot.ansi.console" value="true"/>

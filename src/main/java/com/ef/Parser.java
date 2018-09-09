@@ -2,7 +2,6 @@ package com.ef;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -36,9 +35,14 @@ import org.springframework.stereotype.Service;
 public class Parser implements CommandLineRunner {
 	private Logger log = LoggerFactory.getLogger(this.getClass());
 
-	private Path logFilePath;
 	@Autowired
 	private LogProccessor processor;
+	@Autowired
+	private ThreadPoolTaskExecutor taskExecutor;
+	@Autowired
+	private LogEntityRepository logRepo;
+	@Autowired
+	private BlockedIpRepository blockedIpRepo;
 
 	enum Duration {
 		hourly, daily
@@ -51,9 +55,10 @@ public class Parser implements CommandLineRunner {
 	@Override
 	public void run(String... args) throws Exception {
 		log.info("EXECUTING : command line runner");
+		// evalue the arguments input
 		Map<String, String> argMap = getArgsAsMap(args,
 				new String[] { "accesslog", "duration", "startDate", "threshold" });
-		this.logFilePath = Paths.get(argMap.get("accesslog"));
+		String accesslog = argMap.get("accesslog");
 		final Duration duration = Duration.valueOf(argMap.get("duration"));
 		LocalDateTime startTime = LocalDateTime.parse(argMap.get("startDate"),
 				DateTimeFormatter.ofPattern("yyyy-MM-dd.HH:mm:ss"));
@@ -71,7 +76,18 @@ public class Parser implements CommandLineRunner {
 					String.format("--durtion needs to be one of: %s", Arrays.toString(Duration.values())));
 		}
 		long threshold = Long.parseLong(argMap.get("threshold"));
-		processor.logFrequentHitIPs(startTime, endTime, threshold);
+		// load database with access.log files for first time
+		ingestLogs(accesslog);
+		// find blocked and log out
+		Iterable<BlockedIp> blockedIps = processor.logFrequentHitIPs(startTime, endTime, threshold);
+		if (!blockedIps.iterator().hasNext()) {
+			log.info(String.format("No high frequent requests(over %s hits) found during %s to %s", threshold,
+					startTime, endTime));
+		} else {
+			blockedIps.forEach(it -> {
+				log.info(String.format("Blocked IP:%s", ToStringBuilder.reflectionToString(it)));
+			});
+		}
 
 	}
 
@@ -100,30 +116,23 @@ public class Parser implements CommandLineRunner {
 	 * @param logRepo, blockedIpRepo
 	 * @return
 	 */
-	@Bean
-	public CommandLineRunner ingestLogs(LogEntityRepository logRepo, BlockedIpRepository blockedIpRepo) {
-		return (args) -> {
-			log.info("EXECUTING : CommandLineRunner ingestLogs");
-			Map<String, String> argMap = getArgsAsMap(args,
-					new String[] { "accesslog", "duration", "startDate", "threshold" });
-			this.logFilePath = Paths.get(argMap.get("accesslog"));
-
-			Supplier<Stream<String>> logSupplier = () -> {
-				try {
-					return Files.lines(logFilePath);// .skip(1000).limit(1000);
-				} catch (IOException e) {
-					log.error("can't find log file!", e);
-				}
-				return null;
-			};
-
-			if (null != logSupplier && logSupplier.get().count() != logRepo.count()) {
-				logRepo.deleteAll();
-				logSupplier.get().forEach(processor::persist);
+	private void ingestLogs(String accesslog) {
+		log.info("EXECUTING : CommandLineRunner ingestLogs");
+		Supplier<Stream<String>> logSupplier = () -> {
+			try {
+				return Files.lines(Paths.get(accesslog));// .skip(1000).limit(10000);
+			} catch (IOException e) {
+				log.error("can't find log file!", e);
 			}
-
-			blockedIpRepo.deleteAll();
+			return null;
 		};
+
+		if (null != logSupplier && logSupplier.get().count() != logRepo.count()) {
+			logRepo.deleteAll();
+			logSupplier.get().forEach(processor::persist);
+		}
+		taskExecutor.shutdown();
+		blockedIpRepo.deleteAll();
 	}
 
 }
@@ -134,14 +143,18 @@ class Config implements AsyncConfigurer {
 
 	@Value("${application.async.core-pool-size:5}")
 	private int corePoolSize;
+	@Value("${application.async.max-pool-size:20}")
+	private int maxPoolSize;
 
 	@Bean(name = "taskExecutor")
 	public ThreadPoolTaskExecutor getAsyncExecutor() {
 		log.info("Creating Async Task Executor");
 		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
 		executor.setCorePoolSize(corePoolSize);
+		executor.setMaxPoolSize(maxPoolSize);
 		executor.setThreadNamePrefix("log-mointor-executor-");
 		executor.setWaitForTasksToCompleteOnShutdown(true);
+		executor.setAwaitTerminationSeconds(3);
 		return executor;
 	}
 
@@ -177,15 +190,18 @@ class LogProccessor {
 				log.warn("Fail to ingest log entity with input:{}", line);
 			}
 		});
+
 	}
 
-	public void logFrequentHitIPs(final LocalDateTime startTime, final LocalDateTime endTime, final long threshold) {
+	public Iterable<BlockedIp> logFrequentHitIPs(final LocalDateTime startTime, final LocalDateTime endTime,
+			final long threshold) {
 		List<Object[]> results = logRepo.findIpHitsOver(startTime, endTime, threshold);
 		results.forEach(it -> {
 			BlockedIp blockedIp = new BlockedIp((String) it[0], (Long) it[1], startTime, endTime, threshold);
 			log.info("Adding blocked ip[{}]: {}", blockedIp.getIp(), blockedIp.getComments());
 			blockedIpRepo.save(blockedIp);
 		});
+		return blockedIpRepo.findAll();
 	}
 }
 
