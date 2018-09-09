@@ -3,10 +3,13 @@ package com.ef;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -33,7 +36,6 @@ import org.springframework.stereotype.Service;
 public class Parser implements CommandLineRunner {
 	private Logger log = LoggerFactory.getLogger(this.getClass());
 
-	@Value("${application.log-file-path}")
 	private Path logFilePath;
 	@Autowired
 	private LogProccessor processor;
@@ -48,10 +50,12 @@ public class Parser implements CommandLineRunner {
 
 	@Override
 	public void run(String... args) throws Exception {
-//		--accesslog=/path/to/file --startDate=2017-01-01.13:00:00 --duration=hourly --threshold=100
-		String accesslog = "./data/access.log";
-		final Duration duration = Duration.valueOf("hourly");
-		LocalDateTime startTime = LocalDateTime.parse("2017-01-01.13:00:00",
+		log.info("EXECUTING : command line runner");
+		Map<String, String> argMap = getArgsAsMap(args,
+				new String[] { "accesslog", "duration", "startDate", "threshold" });
+		this.logFilePath = Paths.get(argMap.get("accesslog"));
+		final Duration duration = Duration.valueOf(argMap.get("duration"));
+		LocalDateTime startTime = LocalDateTime.parse(argMap.get("startDate"),
 				DateTimeFormatter.ofPattern("yyyy-MM-dd.HH:mm:ss"));
 		LocalDateTime endTime = null;
 		switch (duration) {
@@ -66,13 +70,27 @@ public class Parser implements CommandLineRunner {
 			throw new IllegalArgumentException(
 					String.format("--durtion needs to be one of: %s", Arrays.toString(Duration.values())));
 		}
-
-		long threshold = 100;
+		long threshold = Long.parseLong(argMap.get("threshold"));
 		processor.logFrequentHitIPs(startTime, endTime, threshold);
-		log.info("EXECUTING : command line runner");
-		for (int i = 0; i < args.length; ++i) {
-			log.info("args[{}]: {}", i, args[i]);
+
+	}
+
+	private Map<String, String> getArgsAsMap(String[] args, String[] keys) {
+		Map<String, String> argMap = new HashMap<>();
+		Stream.of(args).forEach(arg -> {
+			Stream.of(keys).forEach(key -> {
+				String fullKey = String.format("--%s=", key);
+				if (StringUtils.startsWithIgnoreCase(arg, fullKey)) {
+					argMap.put(key, StringUtils.remove(arg, fullKey));
+				}
+			});
+			;
+		});
+		if (!argMap.keySet().containsAll(Arrays.asList(keys))) {
+			throw new IllegalArgumentException(String.format("Arguments missing: %s", Arrays.toString(keys)));
 		}
+
+		return argMap;
 	}
 
 	/**
@@ -86,6 +104,10 @@ public class Parser implements CommandLineRunner {
 	public CommandLineRunner ingestLogs(LogEntityRepository logRepo, BlockedIpRepository blockedIpRepo) {
 		return (args) -> {
 			log.info("EXECUTING : CommandLineRunner ingestLogs");
+			Map<String, String> argMap = getArgsAsMap(args,
+					new String[] { "accesslog", "duration", "startDate", "threshold" });
+			this.logFilePath = Paths.get(argMap.get("accesslog"));
+
 			Supplier<Stream<String>> logSupplier = () -> {
 				try {
 					return Files.lines(logFilePath);// .skip(1000).limit(1000);

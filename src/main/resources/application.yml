@@ -22,5 +22,3 @@ logging:
     ROOT: WARN
     com.ef: INFO
     
-application:
-  log-file-path: ./data/access.log

@@ -65,7 +65,7 @@ Deliverables
 	https://github.com/JuanyongZhang/ef-parser/blob/master/src/main/java/com/ef/Parser.java
 
 (3) MySQL schema used for the log data
-
+	
 (4) SQL queries for SQL test
 	(1) Write MySQL query to find IPs that mode more than a certain number of requests for a given time period.
 	    Ex: Write SQL to find IPs that made more than 100 requests starting from 2017-01-01.13:00:00 to 2017-01-01.14:00:00.
