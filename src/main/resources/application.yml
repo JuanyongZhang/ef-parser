@@ -19,8 +19,8 @@ spring:
       hibernate.jdbc.batch_size: 50
 logging:
   level:
-    ROOT: INFO
-    com.ef: DEBUG
+    ROOT: WARN
+    com.ef: INFO
     
 application:
   log-file-path: ./data/access.log

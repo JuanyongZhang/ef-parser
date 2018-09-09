@@ -61,9 +61,20 @@ Deliverables
     java -cp "parser.jar" com.ef.Parser --accesslog=/path/to/file --startDate=2017-01-01.13:00:00 --duration=hourly --threshold=100 
 
 (2) Source Code for the Java program
+	https://github.com/JuanyongZhang/ef-parser
+	https://github.com/JuanyongZhang/ef-parser/blob/master/src/main/java/com/ef/Parser.java
 
 (3) MySQL schema used for the log data
 
 (4) SQL queries for SQL test
-
+	(1) Write MySQL query to find IPs that mode more than a certain number of requests for a given time period.
+	    Ex: Write SQL to find IPs that made more than 100 requests starting from 2017-01-01.13:00:00 to 2017-01-01.14:00:00.
+	~~~
+	    select logentity0_.ip as col_0_0_, count(logentity0_.id) as col_1_0_ from log_entity logentity0_ where logentity0_.timestamp>='2017-01-01.13:00:00' and logentity0_.timestamp<='2017-01-01.14:00:00' group by logentity0_.ip having count(logentity0_.id)>100
+	~~~    
+	
+	(2) Write MySQL query to find requests made by a given IP.
+	~~~
+	 	SELECT * FROM  log_entity WHERE ip = '192.168.228.188' 
+	~~~
 

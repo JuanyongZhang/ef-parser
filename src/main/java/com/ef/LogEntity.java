@@ -22,7 +22,6 @@ import javax.persistence.Id;
 @Entity
 public class LogEntity {
 	final static DateTimeFormatter date_pattern = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
-
 	@Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
 	private Long id;
@@ -36,8 +35,8 @@ public class LogEntity {
 		super();
 	}
 
-	public LogEntity(String timestamp, String ip, String request,
-			String responseCode, String clientInfo) throws ParseException {
+	public LogEntity(String timestamp, String ip, String request, String responseCode, String clientInfo)
+			throws ParseException {
 		this.timestamp = LocalDateTime.parse(timestamp, date_pattern);
 		this.ip = ip;
 		this.request = request;
